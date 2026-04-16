@@ -1002,7 +1002,7 @@ fn applyOptions(
             lib.root_module.addCMacro(name, if (enabled) "1" else "0");
         }
         for (option.sdl_configs) |config| {
-            config_header.values.put(config, .{ .int = if (enabled) 1 else 0 }) catch @panic("OOM");
+            config_header.addValue(config, c_int, if (enabled) 1 else 0);
         }
         if (enabled) {
             lib.root_module.addCSourceFiles(.{ .files = option.src_files });
