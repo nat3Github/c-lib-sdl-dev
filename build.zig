@@ -52,12 +52,12 @@ pub fn build(b: *std.Build) void {
         "system_include_path",
         "System header search path for cross-compiling",
     );
-    var system_framework_path = b.option(
+    const system_framework_path = b.option(
         std.Build.LazyPath,
         "system_framework_path",
         "System framework search path for cross-compiling",
     );
-    var library_path = b.option(
+    const library_path = b.option(
         std.Build.LazyPath,
         "library_path",
         "Library search path for cross-compiling",
@@ -96,12 +96,8 @@ pub fn build(b: *std.Build) void {
         },
         .macos => {
             macos = true;
-            if (@hasField(std.Build, "sysroot") and b.sysroot != null) { // TODO: Remove after 0.17
-                const sysroot = b.sysroot.?;
-                system_include_path = system_include_path orelse .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
-                system_framework_path = system_framework_path orelse .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
-                library_path = library_path orelse .{ .cwd_relative = "/usr/lib" }; // ???
-            }
+            // No --sysroot fallback: it is graph-wide (also hits native host-tool steps) and
+            // re-roots every absolute -L. Take the SDK paths explicitly.
             if (!target.query.isNative() and (system_include_path == null or system_framework_path == null or library_path == null)) {
                 std.log.err("'-Dsystem_include_path', '-Dsystem_framework_path' and '-Dlibrary_path' are required when building SDL for non-native macOS targets", .{});
                 std.process.exit(1);
@@ -109,13 +105,10 @@ pub fn build(b: *std.Build) void {
         },
         .ios => {
             ios = true;
-            if (b.sysroot) |sysroot| {
-                system_include_path = system_include_path orelse .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
-                system_framework_path = system_framework_path orelse .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
-                library_path = library_path orelse .{ .cwd_relative = "/usr/lib" }; // ???
-            }
+            // No --sysroot fallback: it is graph-wide (also hits native host-tool steps) and
+            // re-roots every absolute -L. Take the SDK paths explicitly.
             if (system_include_path == null or system_framework_path == null or library_path == null) {
-                std.log.err("'--sysroot' (or '-Dsystem_include_path', '-Dsystem_framework_path' and '-Dlibrary_path') is required when building SDL for iOS targets", .{});
+                std.log.err("'-Dsystem_include_path', '-Dsystem_framework_path' and '-Dlibrary_path' are required when building SDL for iOS targets", .{});
                 std.process.exit(1);
             }
         },
