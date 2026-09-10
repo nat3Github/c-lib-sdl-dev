@@ -6,8 +6,12 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const t = target.result;
 
-    const linux_system_include_path = b.option(std.Build.LazyPath, "system_include_path", "Linux sysroot include path (for cross-compiling to Linux)");
-    const linux_library_path = b.option(std.Build.LazyPath, "library_path", "Linux sysroot library path (for cross-compiling to Linux)");
+    // Cross-compile system paths, passed explicitly rather than via --sysroot or
+    // --search-prefix: both of those are graph-wide, so they also hit native host-tool
+    // steps in the same build graph, and --search-prefix never reaches translate-c.
+    const system_include_path = b.option(std.Build.LazyPath, "system_include_path", "Target system include path (for cross-compiling)");
+    const system_framework_path = b.option(std.Build.LazyPath, "system_framework_path", "Target system framework path (for cross-compiling to macOS)");
+    const library_path = b.option(std.Build.LazyPath, "library_path", "Target system library path (for cross-compiling)");
 
     const lib = b.addLibrary(.{
         .name = "SDL2",
@@ -48,11 +52,11 @@ pub fn build(b: *std.Build) void {
                 .flags = &.{"-fobjc-arc"},
             });
 
-            if (b.sysroot) |sysroot| {
-                lib.root_module.addSystemFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
-                lib.root_module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) });
-            } else if (builtin.os.tag != .macos) {
-                std.debug.print("error: cross-compiling to macOS requires --sysroot pointing at a macOS SDK\n", .{});
+            if (system_include_path) |p| lib.root_module.addSystemIncludePath(p);
+            if (system_framework_path) |p| lib.root_module.addSystemFrameworkPath(p);
+            if (library_path) |p| lib.root_module.addLibraryPath(p);
+            if (builtin.os.tag != .macos and (system_include_path == null or system_framework_path == null or library_path == null)) {
+                std.debug.print("error: cross-compiling to macOS requires -Dsystem_include_path, -Dsystem_framework_path and -Dlibrary_path pointing at a macOS SDK's usr/include, System/Library/Frameworks and usr/lib\n", .{});
                 std.process.exit(1);
             }
 
@@ -157,9 +161,9 @@ pub fn build(b: *std.Build) void {
 
                 const cross_linux = builtin.os.tag != .linux;
                 if (cross_linux) {
-                    if (linux_system_include_path) |p| lib.root_module.addSystemIncludePath(p);
-                    if (linux_library_path) |p| lib.root_module.addLibraryPath(p);
-                    if (linux_system_include_path == null or linux_library_path == null) {
+                    if (system_include_path) |p| lib.root_module.addSystemIncludePath(p);
+                    if (library_path) |p| lib.root_module.addLibraryPath(p);
+                    if (system_include_path == null or library_path == null) {
                         std.debug.print("error: cross-compiling to Linux requires -Dsystem_include_path and -Dlibrary_path pointing at a Linux sysroot's usr/include and usr/lib (X11/pulse headers+libs)\n", .{});
                         std.process.exit(1);
                     }
