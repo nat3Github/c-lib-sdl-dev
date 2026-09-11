@@ -49,15 +49,15 @@ pub fn build(b: *std.Build) void {
     ) orelse false;
     var system_include_path = b.option(
         std.Build.LazyPath,
-        "system_include_path",
+        "include_path",
         "System header search path for cross-compiling",
     );
     const system_framework_path = b.option(
         std.Build.LazyPath,
-        "system_framework_path",
+        "framework_path",
         "System framework search path for cross-compiling",
     );
-    const library_path = b.option(
+    const system_library_path = b.option(
         std.Build.LazyPath,
         "library_path",
         "Library search path for cross-compiling",
@@ -98,8 +98,8 @@ pub fn build(b: *std.Build) void {
             macos = true;
             // No --sysroot fallback: it is graph-wide (also hits native host-tool steps) and
             // re-roots every absolute -L. Take the SDK paths explicitly.
-            if (!target.query.isNative() and (system_include_path == null or system_framework_path == null or library_path == null)) {
-                std.log.err("'-Dsystem_include_path', '-Dsystem_framework_path' and '-Dlibrary_path' are required when building SDL for non-native macOS targets", .{});
+            if (!target.query.isNative() and (system_include_path == null or system_framework_path == null or system_library_path == null)) {
+                std.log.err("'-Dinclude_path', '-Dframework_path' and '-Dlibrary_path' are required when building SDL for non-native macOS targets", .{});
                 std.process.exit(1);
             }
         },
@@ -107,8 +107,8 @@ pub fn build(b: *std.Build) void {
             ios = true;
             // No --sysroot fallback: it is graph-wide (also hits native host-tool steps) and
             // re-roots every absolute -L. Take the SDK paths explicitly.
-            if (system_include_path == null or system_framework_path == null or library_path == null) {
-                std.log.err("'-Dsystem_include_path', '-Dsystem_framework_path' and '-Dlibrary_path' are required when building SDL for iOS targets", .{});
+            if (system_include_path == null or system_framework_path == null or system_library_path == null) {
+                std.log.err("'-Dinclude_path', '-Dframework_path' and '-Dlibrary_path' are required when building SDL for iOS targets", .{});
                 std.process.exit(1);
             }
         },
@@ -119,7 +119,7 @@ pub fn build(b: *std.Build) void {
                 system_include_path = system_include_path orelse .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
             }
             if (system_include_path == null) {
-                std.log.err("'-Dsystem_include_path' is required when building SDL for Emscripten", .{});
+                std.log.err("'-Dinclude_path' is required when building SDL for Emscripten", .{});
                 std.process.exit(1);
             }
         },
@@ -704,7 +704,7 @@ pub fn build(b: *std.Build) void {
     if (system_framework_path) |path| {
         sdl_mod.addSystemFrameworkPath(path);
     }
-    if (library_path) |path| {
+    if (system_library_path) |path| {
         sdl_mod.addLibraryPath(path);
     }
 
